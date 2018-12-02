@@ -44,33 +44,46 @@ def gen_ip(ipitem):
 
 
 def gen_recursive(prefix, gen, subfix_dict, itype='normal'):
-    if not prefix:
-        pass
-    else:
-        pass
-    r_list = []
     if itype == "normal":
         sorted_keys = sorted(subfix_dict['normal'].keys())
     elif itype == "special":
         sorted_keys = sorted(subfix_dict['special'].keys())
     elif itype == "end":
         sorted_keys = sorted(subfix_dict['end'].keys())
-    leng_subfix = len(sorted_keys)
+    leng_subfix = sorted_keys[len(sorted_keys)-1] + 1
+    result_index = leng_subfix -1
+    if not prefix:
+        leng_subfix = leng_subfix - 1
+        result_index = leng_subfix -1
     tmp_result = {}
-    for i in leng_subfix:
+    # to replace 0 and leng_subfix +1 to variable
+    for i in range(sorted_keys[0], leng_subfix):
         if i not in tmp_result.keys():
             tmp_result[i] = []
-        if i == leng_subfix[0]:
-            prefix = gen
+        if i == sorted_keys[0]:
+            prefix = "{0}.{1}".format(prefix, gen)
         else:
             prefix = tmp_result[i-1]
-        for item in subfix_dict[itype][i]:
-            if isinstance(prefix, list):
+        if itype == "end" and i == leng_subfix:
+            for item in subfix_dict['normal'][i]:
                 for single_prefix in prefix:
-                    tmp_result[i].append('{0}.{1}'.format(single_prefix, item))
-            else:
-                tmp_result[i].append('{0}.{1}'.format(prefix, item))
-    return tmp_result[leng_subfix]
+                    k = prefix.index(single_prefix)
+                    if prefix.index(single_prefix) == (len(prefix) -1 ):
+                        continue
+                    else:
+                        tmp_result[i].append("{0}.{1}".format(single_prefix, item))
+            for item in subfix_dict['end'][i]:
+                for single_prefix in prefix:
+                    if prefix.index(single_prefix) == (len(prefix) - 1):
+                        tmp_result[i].append("{0}.{1}".format(single_prefix, item))
+        else:
+            for item in subfix_dict[itype][i]:
+                if isinstance(prefix, list):
+                    for single_prefix in prefix:
+                        tmp_result[i].append('{0}.{1}'.format(single_prefix, item))
+                else:
+                    tmp_result[i].append('{0}.{1}'.format(prefix, item))
+    return tmp_result[result_index]
 
 
 def single_dash_gen(ip, count_list):
@@ -87,53 +100,40 @@ def single_dash_gen(ip, count_list):
             return_list.append('{0}.{1}'.format(origin_ip, gen_number))
         return return_list
     else:
-        # tested
+        # tested , now is not support the first header
         counter = count_list[0]
         origin_ip_prefix, origin_ip_subfix = ip_split[:counter], ip_split[counter+1:]
         if origin_ip_prefix:
             ip_prefix = '.'.join(origin_ip_prefix)
         else:
-            ip_prefix = None
+            ip_prefix = ''
         return_list = []
         start, end = ip_split[counter].split('-')
         if end == '255' or start == "0":
             raise ValueError("over flow")
-        gen_dash_list = range(int(start), int(end))
-        if len(origin_ip_subfix) == 1:
-            ip_special_subfix = range(int(origin_ip_subfix), 255)
-            ip_normal_subfix = range(1, 255)
-            ip_end_subfix = range(1, int(origin_ip_subfix))
-            for gen_number in gen_dash_list:
-                if gen_number == gen_dash_list[0]:
-                    round_list = ip_special_subfix
-                elif gen_number == gen_dash_list[len(gen_dash_list) - 1]:
-                    round_list = ip_normal_subfix
-                else:
-                    round_list = ip_end_subfix
-                for subfix in round_list:
-                    return_list.append("{0}.{1}.{2}".format(ip_prefix, gen_number, subfix))
-            return return_list
-        else:
-            ## TODO to be test
-            subfix = {}
-            subfix['normal'] = {}
-            subfix['special'] = {}
-            subfix['end'] = {}
-            for i in range(0, len(origin_ip_subfix)):
-                subfix['normal'][counter + i] = range(1, 255)
-                subfix['special'][counter + i] = range(int(origin_ip_subfix[i]), 255)
-                subfix['end'][counter + i] = range(1, origin_ip_subfix[i])
-            for gen_number in gen_dash_list:
-                if gen_number == gen_dash_list[0]:
-                    special_result = gen_recursive(ip_prefix, gen_number, subfix, 'special')
-                    return_list.append()
-                elif gen_number == gen_dash_list[len(gen_dash_list) - 1]:
-                    end_result = gen_recursive(ip_prefix, gen_number, subfix, 'end')
-                    return_list.append()
-                else:
-                    normal_result = gen_recursive(ip_prefix, gen_number, subfix, 'normal')
-                    return_list.append()
-            return return_list
+        gen_dash_list = range(int(start), int(end)+1)
+        subfix = {}
+        subfix['normal'] = {}
+        subfix['special'] = {}
+        subfix['end'] = {}
+        for i in range(0, len(origin_ip_subfix)):
+            subfix['normal'][counter + i] = range(1, 255)
+            subfix['special'][counter + i] = range(int(origin_ip_subfix[i]), 255)
+            subfix['end'][counter + i] = range(1, int(origin_ip_subfix[i]) + 1)
+        for gen_number in gen_dash_list:
+            if gen_number == gen_dash_list[0]:
+                special_result = gen_recursive(ip_prefix, gen_number, subfix, 'special')
+                for item in special_result:
+                    return_list.append(item)
+            elif gen_number == gen_dash_list[len(gen_dash_list) - 1] :
+                end_result = gen_recursive(ip_prefix, gen_number, subfix, 'end')
+                for item in end_result:
+                    return_list.append(item)
+            else:
+                normal_result = gen_recursive(ip_prefix, gen_number, subfix, 'normal')
+                for item in normal_result:
+                    return_list.append(item)
+        return return_list
 
 def double_dash_gen(ip, count_list):
     ip_split = ip.split('.')
@@ -229,3 +229,9 @@ def fourth_dash_gen(ip, count_list=[1,2,3,4]):
                 for gen_number in gen_dash_list:
                     return_list.append('{0}.{1}.{2}.{3}'.format(gen_number3, gen_number2, gen_number1, gen_number))
     return return_list
+
+
+if __name__ == "__main__":
+    a = "10.13.19.10"
+    count_list = [0]
+    data = single_dash_gen(a, count_list)
